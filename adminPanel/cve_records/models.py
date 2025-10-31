@@ -26,6 +26,9 @@ class CVEHistory(models.Model):
 		indexes = [
 			models.Index(fields=["cveId"]),
 			models.Index(fields=["cveChangeId"]),
+			models.Index(fields=["created", "id"]),  # Compound index for sorted pagination
+			models.Index(fields=["eventName", "id"]),  # Common sort field
+			models.Index(fields=["sourceIdentifier", "id"]),  # Common filter/sort field
 		]
 
 	def __str__(self) -> str:
