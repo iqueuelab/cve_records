@@ -1,0 +1,35 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 20px;
+}
+.app header {
+  margin-bottom: 12px;
+}
+.controls {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.filters input {
+  margin-right: 6px;
+}
+.cve-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cve-table th,
+.cve-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+.cve-table th {
+  cursor: pointer;
+  background: #f8f8f8;
+}
+.pagination {
+  margin-top: 12px;
+}
+.small {
+  font-size: 12px;
+  white-space: pre-wrap;
+}

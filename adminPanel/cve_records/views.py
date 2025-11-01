@@ -7,10 +7,26 @@ from .serializers import CVEHistorySerializer
 from .filters import CVEHistoryFilter
 
 class StandardResultsSetPagination(PageNumberPagination):
-    """Custom pagination with smaller default page size to prevent memory issues."""
+    """Custom pagination with smaller default page size to prevent memory issues.
+
+    This pagination accepts both `page` and `page_number` query params so
+    clients can use whichever they prefer.
+    """
     page_size = 50
     page_size_query_param = 'page_size'
     max_page_size = 1000
+    page_query_param = 'page'
+
+    def get_page_number(self, request, paginator):
+        """Allow either `page` or `page_number` query params.
+
+        Falls back to the default behavior when neither is provided.
+        """
+        # prefer explicit page param then page_number
+        page_number = request.query_params.get(self.page_query_param) or request.query_params.get('page_number')
+        if page_number is None:
+            return super().get_page_number(request, paginator)
+        return page_number
 
 class CVEHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
