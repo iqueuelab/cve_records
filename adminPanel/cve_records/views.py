@@ -1,7 +1,11 @@
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q
+from django.db.models import Q, Count
+from django.views.generic import TemplateView
+from django.db.models.functions import TruncDate
+from django.shortcuts import render
+from chartjs.views.lines import BaseLineChartView
 from .models import CVEHistory
 from .serializers import CVEHistorySerializer
 from .filters import CVEHistoryFilter
@@ -133,3 +137,94 @@ class CVEHistoryViewSet(viewsets.ReadOnlyModelViewSet):
                 queryset = queryset.order_by(ordering[0], 'id')
         
         return queryset
+
+
+class CVEDashboardView(TemplateView):
+    template_name = 'cve_records/dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get filter parameters
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+        event_type = self.request.GET.get('event_type')
+        
+        # Base queryset
+        queryset = CVEHistory.objects.all()
+        
+        # Apply filters
+        if date_from:
+            queryset = queryset.filter(created__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(created__lte=date_to)
+        if event_type:
+            queryset = queryset.filter(eventName=event_type)
+        
+        # Event type distribution
+        event_stats = queryset.values('eventName') \
+            .annotate(count=Count('id')) \
+            .order_by('-count')
+        
+        # Timeline data
+        timeline_data = queryset.annotate(
+            date=TruncDate('created')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        
+        # Source distribution
+        source_stats = queryset.values('sourceIdentifier') \
+            .annotate(count=Count('id')) \
+            .order_by('-count')
+        
+        # Monthly trend
+        from django.db.models.functions import TruncMonth
+        monthly_trend = queryset.annotate(
+            month=TruncMonth('created')
+        ).values('month').annotate(
+            count=Count('id')
+        ).order_by('month')
+        
+        # Get all event types for filter dropdown
+        all_event_types = CVEHistory.objects.values_list('eventName', flat=True).distinct()
+        
+        # Total counts
+        total_cves = queryset.count()
+        total_sources = queryset.values('sourceIdentifier').distinct().count()
+        
+        context.update({
+            'event_stats': event_stats,
+            'timeline_data': timeline_data,
+            'source_stats': source_stats,
+            'monthly_trend': monthly_trend,
+            'all_event_types': all_event_types,
+            'total_cves': total_cves,
+            'total_sources': total_sources,
+            'filters': {
+                'date_from': date_from,
+                'date_to': date_to,
+                'event_type': event_type,
+            }
+        })
+        return context
+
+
+class CVELineChartView(BaseLineChartView):
+    def get_labels(self):
+        dates = CVEHistory.objects.annotate(
+            date=TruncDate('created')
+        ).values_list('date', flat=True).distinct().order_by('date')
+        return [d.strftime('%Y-%m-%d') for d in dates]
+
+    def get_data(self):
+        dates = CVEHistory.objects.annotate(
+            date=TruncDate('created')
+        ).values('date').annotate(
+            count=Count('id')
+        ).order_by('date')
+        
+        return [[d['count'] for d in dates]]
+
+    def get_providers(self):
+        return ["CVE Updates"]
